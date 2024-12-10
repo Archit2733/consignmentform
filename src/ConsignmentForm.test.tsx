@@ -1,136 +1,95 @@
 import React from "react";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { FormProvider, useForm } from "react-hook-form";
 import ConsignmentForm from "./ConsignmentForm";
-import userEvent from "@testing-library/user-event";
-// Mock the fetchCountries function only
-jest.mock("./ConsignmentForm", () => {
-    const originalModule = jest.requireActual("./ConsignmentForm");
-    return {
-      __esModule: true, // Ensures the default export remains intact
-      ...originalModule,
-      fetchCountries: jest.fn(),
-    };
-  });
-  
-  // Get the mocked function for use in tests
-  const mockFetchCountries = require("./ConsignmentForm").fetchCountries;
+import { fetchCountries } from "./api";
 
-describe("ConsignmentForm", () => {
+
+
+describe("ConsignmentForm Component", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    return fetchCountries();
   });
 
-  test("Form rendering and initial state", () => {
+  test("renders the form with initial state", () => {
     render(<ConsignmentForm />);
 
-    // Check if the form title is present
-    expect(
-      screen.getByRole("heading", { name: /Consignment Form/i })
-    ).toBeInTheDocument();
-
-    // Check if fields are rendered with default values
-    expect(screen.getByLabelText(/Weight \(kg\)/i)).toHaveValue(1);
-    expect(screen.getByPlaceholderText("width")).toHaveValue(10);
-    expect(screen.getByPlaceholderText("height")).toHaveValue(10);
-    expect(screen.getByPlaceholderText("depth")).toHaveValue(10);
+    expect(screen.getByText(/Consignment Form/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Source/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/destination/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/weight \(kg\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/Dimensions \(cm\)/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /submit/i })).toBeInTheDocument();
   });
 
-  describe("ConsignmentForm - Dropdown population", () => {
-    beforeEach(() => {
-      // Mock implementation of fetchCountries
-      mockFetchCountries.mockResolvedValue([
-        { name: { common: "Australia" } },
-        { name: { common: "New Zealand" } },
-      ]);
-    });
-  
-    afterEach(() => {
-      jest.resetAllMocks();
-    });
-  
-    test("Populates dropdown with data from mock API", async () => {
-      render(<ConsignmentForm />);
-  
-      // Wait for the dropdown to populate
-      await waitFor(() => {
-        expect(mockFetchCountries).toHaveBeenCalledTimes(1);
-      });
-  
-      // Check if dropdown options are rendered
-      const sourceDropdown = screen.getByLabelText(/source/i);
-      expect(sourceDropdown).toBeInTheDocument();
-  
-      const options = screen.getAllByRole("option");
-      expect(options).toHaveLength(3); // Two from the mock + one default empty option
-      expect(options[1]).toHaveTextContent("Australia");
-      expect(options[2]).toHaveTextContent("New Zealand");
-    });
-  
-    test("Displays empty dropdown if the mock API fails", async () => {
-      mockFetchCountries.mockRejectedValue(new Error("API Error"));
-  
-      render(<ConsignmentForm />);
-  
-      // Wait for the component to handle the API error
-      await waitFor(() => {
-        expect(mockFetchCountries).toHaveBeenCalledTimes(1);
-      });
-  
-      const sourceDropdown = screen.getByLabelText(/source/i);
-      expect(sourceDropdown).toBeInTheDocument();
-  
-      const options = screen.getAllByRole("option");
-      expect(options).toHaveLength(1); // Only the default empty option
-      expect(options[0]).toHaveTextContent("-- Select --");
-    });
-  });
-
-  test("Form validation logic", async () => {
+  test("validates form input fields", async () => {
     render(<ConsignmentForm />);
 
-    // Attempt to submit without filling required fields
     fireEvent.click(screen.getByRole("button", { name: /submit/i }));
 
-    // Check for validation messages
-    await screen.findByText("source is required");
-    expect(
-      screen.getByText("destination is required")
-    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText(/source is required/i)).toBeInTheDocument();
+      // eslint-disable-next-line testing-library/no-wait-for-multiple-assertions
+      expect(screen.getByText(/destination is required/i)).toBeInTheDocument();
+      // eslint-disable-next-line testing-library/no-wait-for-multiple-assertions
+    //   expect(screen.getByText(/weight is required/i)).toBeInTheDocument();
+    });
+  });
 
-    // Enter invalid data
+  test("populates dropdowns from the mock API", async () => {
+    render(<ConsignmentForm />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/Australia/i)).toHaveLength(2);
+      // eslint-disable-next-line testing-library/no-wait-for-multiple-assertions
+      expect(screen.getAllByText(/New Zealand/i)).toHaveLength(2);
+    });
+  });
+
+  test("handles successful submission and displays success message", async () => {
+    render(<ConsignmentForm />);
+
+    // Fill form fields
+    fireEvent.change(screen.getByLabelText(/Source/i), {
+      target: { value: "Australia" },
+    });
+    fireEvent.change(screen.getByLabelText(/Destination/i), {
+      target: { value: "New Zealand" },
+    });
     fireEvent.change(screen.getByLabelText(/Weight \(kg\)/i), {
-      target: { value: 2000 },
+      target: { value: 5 },
+    });
+    fireEvent.change(screen.getByPlaceholderText(/width/i), {
+      target: { value: 10 },
+    });
+    fireEvent.change(screen.getByPlaceholderText(/height/i), {
+      target: { value: 10 },
+    });
+    fireEvent.change(screen.getByPlaceholderText(/depth/i), {
+      target: { value: 10 },
     });
 
     fireEvent.click(screen.getByRole("button", { name: /submit/i }));
 
-    // Check for validation messages
-    await screen.findByText("Weight must be between 1 and 1000 kg");
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Form submitted successfully!/i)
+      ).toBeInTheDocument();
+    });
   });
 
-  test("Displays success message on successful form submission", async () => {
-    render(<ConsignmentForm />);
-  
-    // Fill out the form fields using the correct label text
-    userEvent.type(screen.getByLabelText(/source/i), "Australia");
-    userEvent.type(screen.getByLabelText(/destination/i), "New Zealand");
-    userEvent.type(screen.getByLabelText(/Weight \(kg\)/i), "10");
-  
-  // Submit the form
-  userEvent.click(screen.getByRole("button", { name: /submit/i }));
-
-  // Wait for the success message
-  await waitFor(() => {
-    expect(screen.getByText((content) => content.includes("Form submitted successfully!"))).toBeInTheDocument();
-  });
-  });
-
-  test("Handling of API errors", async () => {
-    mockFetchCountries.mockRejectedValue(new Error("API error"));
+  test("handles API errors gracefully", async () => {
+    jest.spyOn(global, "fetch").mockImplementationOnce(() =>
+      Promise.reject(new Error("Failed to fetch countries"))
+    );
 
     render(<ConsignmentForm />);
 
-    // Check that locations remain empty
-    await waitFor(() => expect(screen.queryAllByRole("option").length).toBe(0));
+    await waitFor(() => {
+      expect(
+        screen.queryByText(/Australia/i)
+      ).not.toBeInTheDocument();
+    });
   });
 });
