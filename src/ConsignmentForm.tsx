@@ -30,7 +30,7 @@ async function fetchCountries() {
 
 const ConsignmentForm: React.FC = () => {
   const method = useForm<FormData>({
-    defaultValues: { weight: 1, height: 10, width: 10, depth: 10 },
+    defaultValues: {},
     mode: "onChange",
     reValidateMode: "onChange",
   });
@@ -154,7 +154,7 @@ const ConsignmentForm: React.FC = () => {
 
           {/* Submission Status */}
           {submissionStatus === "success" && (
-            <div className="mt-4 text-center text-green-600">
+            <div data-testid="success-message" className="mt-4 text-center text-green-600">
               Form submitted successfully!
             </div>
           )}
